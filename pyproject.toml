@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "channelintensities"
+version = "0.1.0"
+description = "Package for analyzing microscopy data of channels. Outputs intensities averaged over the width of the channel."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Timon Stegmaier", email = "timon@rapid-systems.de"}
+]
+keywords = ["microscopy", "intensities", "diffusion"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.8"
+
+
+
+[project.urls]
+"Source" = "https://github.com/Teranis/ChannelIntens"
+"Tracker" = "https://github.com/Teranis/ChannelIntens/issues"
+"homepage" = "https://github.com/Teranis/ChannelIntens"
+
+[project.scripts]
+channelintensities = "channelintensities.core:main_func"
