@@ -22,9 +22,9 @@ requires-python = ">=3.8"
 
 
 [project.urls]
-"Source" = "https://github.com/Teranis/ChannelIntens"
-"Tracker" = "https://github.com/Teranis/ChannelIntens/issues"
-"homepage" = "https://github.com/Teranis/ChannelIntens"
+"Source" = "https://github.com/Teranis/channelintensities"
+"Tracker" = "https://github.com/Teranis/channelintensities/issues"
+"homepage" = "https://github.com/Teranis/channelintensities"
 
 [project.scripts]
 channelintensities = "channelintensities.core:main_func"

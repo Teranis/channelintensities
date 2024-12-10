@@ -135,10 +135,10 @@ By following these steps, you ensure that your project dependencies are managed 
 ### 0. Select steps from the main menu
 - steps can be skipped, and every step which produces output is saved, so feel free to try out different things
 
-### 0. Load Data
+### 1. Load Data
 - Loading data from TIFF files. 4D, 2x3D (one for each channel), 1x3D (all in one folder with one for each time point), 2x2D (two folders with all imgs for one channel in one folder) is supported
 
-### 2. Align the Main Channel
+### 2. Rotate the Main Channel
 - Rotate the image so that the primary channel is at the bottom using the GUI elements provided.
 
 ### 3. Trim Frames
@@ -151,7 +151,10 @@ By following these steps, you ensure that your project dependencies are managed 
 - The toolkit automatically generates equidistant lines within each defined bbox.  
 - **How It Works**: 
   - Each line is spaced equidistantly within the bbox.  
-  - The value assigned to each pixel corresponds to the traversal length of its associated line.
+  - The value assigned to each pixel corresponds to the traversal length of its associated line. (see pictures below)
+![Weight map exam](https://github.com/Teranis/channelintensities/blob/011662aa5e312d5bd46486b3b614adc40b65501a/imgs/image.svg)
+![Weight map exam](https://github.com/Teranis/channelintensities/blob/011662aa5e312d5bd46486b3b614adc40b65501a/imgs/image2.svg)
+
 
 ### 6. Save Results
 - Results are saved in a tabular format for further analysis and reproducibility.
@@ -159,6 +162,7 @@ By following these steps, you ensure that your project dependencies are managed 
 ### 7. Visualization and Analysis
 - Visualize results using predefined plot templates.
 - Fit diffusion coefficients (D) directly using the integrated fitting tools.
+![example plot](https://github.com/Teranis/channelintensities/blob/011662aa5e312d5bd46486b3b614adc40b65501a/imgs/exampleplot.jpg)
 
 ## Tips for Saving Plots
 
