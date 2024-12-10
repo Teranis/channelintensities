@@ -91,7 +91,7 @@ This repository contains tools for analyzing cell size regulation dynamics by an
      ```
 
 5. Verify that the virtual environment is active:
-   - Your terminal prompt should now show `(venv)` at the beginning.
+   - Your terminal prompt should now show `<your_venv_name>` at the beginning.
    - Check the Python version in the environment:
      ```bash
      python --version
@@ -101,10 +101,10 @@ This repository contains tools for analyzing cell size regulation dynamics by an
 
 ### 3. **Installing the Toolkit**
 
-With the virtual environment active, install the `cell-size-dynamics` toolkit from PyPI:
+With the virtual environment active, install the `channelintensities` toolkit from PyPI:
 
 ```bash
-pip install cell-size-dynamics
+pip install channelintensities
 ```
 
 ---
@@ -132,6 +132,12 @@ deactivate
 By following these steps, you ensure that your project dependencies are managed cleanly and do not interfere with other Python projects on your system. 
 
 ## Workflow Instructions
+### Starting the programme
+- activate your venv
+- simply type
+```bash
+channelintensities
+```
 ### 0. Select steps from the main menu
 - steps can be skipped, and every step which produces output is saved, so feel free to try out different things
 
@@ -162,7 +168,7 @@ By following these steps, you ensure that your project dependencies are managed 
 ### 7. Visualization and Analysis
 - Visualize results using predefined plot templates.
 - Fit diffusion coefficients (D) directly using the integrated fitting tools.
-![example plot](https://github.com/Teranis/channelintensities/blob/011662aa5e312d5bd46486b3b614adc40b65501a/imgs/exampleplot.jpg)
+![example plot](https://github.com/Teranis/channelintensities/blob/cee94c5464c6590303a13e8711a69f987bcb6598/imgs/exampleplot.jpg)
 
 ## Tips for Saving Plots
 
