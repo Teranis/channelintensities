@@ -25,7 +25,7 @@ This repository contains tools for analyzing cell size regulation dynamics by an
 
 ## Installation Guide
 
-## Setting Up Your Environment
+# Setting Up Your Environment
 
 To ensure a clean and isolated development environment, it's recommended to use a Python virtual environment (venv). Follow the instructions below to install Python, create a virtual environment, and set up the toolkit.
 
