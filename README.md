@@ -25,8 +25,6 @@ This repository contains tools for analyzing cell size regulation dynamics by an
 
 ## Installation Guide
 
----
-
 ### 1. **Installing Python**
    
 #### **For Windows**
