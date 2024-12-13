@@ -2,6 +2,8 @@ import skimage
 import numpy as np
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from matplotlib.transforms import IdentityTransform
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.patches import Polygon
 import tkinter as tk
@@ -64,7 +66,7 @@ def create_window_with_buttons(title, content_frame_func):
     button_frame.pack(side=tk.BOTTOM, pady=10)
 
     # Buttons inside the frame
-    submit_button = ttk.Button(button_frame, text="Submit", command=submit)
+    submit_button = ttk.Button(button_frame, text="Done", command=submit)
     submit_button.pack(side=tk.LEFT, padx=5)
 
     cancel_button = ttk.Button(button_frame, text="Cancel", command=cancel)
@@ -341,14 +343,14 @@ def find_bboxs(bf, fl):
 
 ###########
 
-def plot_weight_maps_preview(weight_maps_per_bbox, bf, fl):
+def plot_weight_maps_preview(weight_maps_per_bbox, bf, fl, pixel_size):
     root = tk.Tk()
-    root.title("Weight Maps Preview")
+    root.title("Binding box Preview")
 
     # Create a figure and axis
     fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
 
-    fig.suptitle('Weight Maps Preview')
+    fig.suptitle("Binding box Preview", position=(0.5, 0.88))
 
     # Plot the data
     image1 = ax1.imshow(bf[0], cmap='gray')
@@ -356,6 +358,36 @@ def plot_weight_maps_preview(weight_maps_per_bbox, bf, fl):
 
     image2 = ax2.imshow(fl[0], cmap='gray')
     ax2.set_title('Fluorescence')
+
+    scale_bar_length = 100  # 10 micrometers
+
+    # Calculate scale bar length in pixels
+    scale_bar_length_pixels = scale_bar_length / pixel_size
+
+    scalebar1 = AnchoredSizeBar(
+        ax1.transData,                  # Use data coordinates
+        scale_bar_length_pixels,       # Length of scale bar in pixels
+        f'{scale_bar_length} µm',      # Scale bar label
+        'upper right',                 # Location of the scale bar
+        pad=0.5,
+        color='white',
+        frameon=False,
+        size_vertical=2                # Thickness of the scale bar
+        )
+
+    scalebar2 = AnchoredSizeBar(
+        ax2.transData,                  # Use data coordinates
+        scale_bar_length_pixels,       # Length of scale bar in pixels
+        f'{scale_bar_length} µm',      # Scale bar label
+        'upper right',                 # Location of the scale bar
+        pad=0.5,
+        color='white',
+        frameon=False,
+        size_vertical=2                # Thickness of the scale bar
+        )
+
+    ax1.add_artist(scalebar1)
+    ax2.add_artist(scalebar2)
 
     # Create a canvas to display the plot
     canvas = FigureCanvasTkAgg(fig, master=root)
@@ -403,8 +435,8 @@ def plot_weight_maps_preview(weight_maps_per_bbox, bf, fl):
 
     plt.close(fig)
 
-def plot_preview_lines(weight_maps_per_box, bf):
-    weight_maps_per_box = [np.where(bboxs == 0, np.nan, bboxs) for bboxs in weight_maps_per_box]
+def plot_preview_lines(weight_maps_per_box, crops_per_bbox, crop_coords_per_bbox, bf):
+    # weight_maps_per_box = [np.where(bboxs == 0, np.nan, bboxs) for bboxs in weight_maps_per_bbox]
 
     root = tk.Tk()
     root.title('Preview Weight Maps')
@@ -439,15 +471,13 @@ def plot_preview_lines(weight_maps_per_box, bf):
 
     weight_map = weight_maps_per_box[0][0]
 
-    non_zero_indices = np.nonzero(weight_map)
-
-    min_y, max_y = np.min(non_zero_indices[0]), np.max(non_zero_indices[0])
-    min_x, max_x = np.min(non_zero_indices[1]), np.max(non_zero_indices[1])
-
-    wight_map_box = weight_map[min_y:max_y, min_x:max_x]
+    coords = crop_coords_per_bbox[0][0]
+    x_min, x_max = coords[1]
+    y_min, y_max = coords[0]
+    crop = weight_map[y_min:y_max, x_min:x_max]
 
     wp1 = ax1.imshow(weight_map, cmap='viridis', alpha=0.5)
-    wp2 = ax2.imshow(wight_map_box, cmap='viridis', alpha=0.5)
+    wp2 = ax2.imshow(crop, cmap='viridis', alpha=0.5)
 
     def update_plot(val):
         nonlocal wp2
@@ -465,16 +495,11 @@ def plot_preview_lines(weight_maps_per_box, bf):
         # image1.set_data(bf[idx])
         # image2.set_data(fl[idx])
         weight_map = weight_maps_per_box[idx][idx_wp]
-
-        non_zero_indices = np.nonzero(weight_map)
-        min_y, max_y = np.min(non_zero_indices[0]), np.max(non_zero_indices[0])
-        min_x, max_x = np.min(non_zero_indices[1]), np.max(non_zero_indices[1])
-
-        wight_map_box = weight_map[min_y:max_y, min_x:max_x]
+        crop_per_bbox = crops_per_bbox[idx][idx_wp]
 
         wp1.set_data(weight_map)
         wp2.remove()
-        wp2 = ax2.imshow(wight_map_box, cmap='viridis', alpha=0.5)
+        wp2 = ax2.imshow(crop_per_bbox, cmap='viridis', alpha=0.5)
 
         fig.canvas.draw_idle()
 
@@ -1042,3 +1067,45 @@ def two_img_preview(img1, img2):
     root.mainloop()
     plt.close(fig)
     return switch_img1_img2, img_bad
+
+def ask_for_metadata_and_exp_name(dict_len, dict_rate):
+    title = 'Please select the correct metadata for pixel size\nand an experiment name'
+
+    input_spec = [
+    {
+        "name": "Experiment Name",
+        "type": str,
+        "default": "new_experiment"
+    }
+    ]
+    values = list(dict_len.values())
+    value_act = (2, 2)
+    for value in values:
+        if not value == (None, None):
+            value_act = value
+            break
+
+    input_spec +=  [
+        {"name": "Pixel length [um]", "type": float, "default": value_act[0]},
+    ]
+
+    values = list(dict_rate.values())
+    value_act = 60
+    for value in values:
+        if not value == None:
+            value_act = value
+            break
+
+    input_spec += [
+        {"name": "Time interval [s]", "type": float, "default": value_act}
+    ]
+
+    result = ask_for_input(title, input_spec)
+    if result is None:
+        return None, None, None
+
+    pixel_size = result["Pixel length [um]"]
+    time_interval = result["Time interval [s]"]
+    experiment_name = result["Experiment Name"]
+
+    return experiment_name, pixel_size, time_interval

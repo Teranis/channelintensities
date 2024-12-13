@@ -221,7 +221,7 @@ def weight_maps_preview(json_info, img_shape, lines_per_pixel_length=None, num_l
     bf = json_info['bf']
     fl = json_info['fl']
     weight_maps_and_lines = generate_weight_maps(bboxs, img_shape, lines_per_pixel_length=lines_per_pixel_length, return_lines=True, num_lines=num_lines)
-    plot_weight_maps_preview(weight_maps_and_lines, bf, fl)
+    plot_weight_maps_preview(weight_maps_and_lines, bf, fl, pixel_size=json_info['length_per_pixel'])
 
 def get_most_left_point(bbox):
     return min(bbox, key=lambda x: x[0])
@@ -230,73 +230,69 @@ def generate_all_weight_maps(json_info, img_shape, lines_per_pixel_length=None, 
     print('Generating all weight maps...')
 
     bboxs = json_info['bboxs']
-
-
     weight_maps_per_bbox, length_middle_lines = generate_weight_maps(bboxs, img_shape, lines_per_pixel_length=lines_per_pixel_length, num_lines=num_lines)
 
     # oops the image is kind of displayed upside down soo....
     for weight_maps in weight_maps_per_bbox:
         weight_maps.reverse()        
 
-    print("Saving weight maps...")
-    save_weight_maps(weight_maps_per_bbox, json_info)
+    weight_maps_per_bbox = [np.array(weight_maps) for weight_maps in weight_maps_per_bbox]
+    crop_per_bbox, crop_coords_per_bbox = save_weight_maps(weight_maps_per_bbox, json_info)
 
-    return weight_maps_per_bbox, length_middle_lines
+    return crop_per_bbox, crop_coords_per_bbox, length_middle_lines, weight_maps_per_bbox
 
-def prepare_weight_maps_per_bbox(weight_maps, bbox_index):
-    weight_maps_sums = []
-    cutout_for_weight_maps = []
-    for weight_map in weight_maps:
-        non_zero_indices = np.nonzero(weight_map)
+# def prepare_weight_maps_per_bbox(weight_maps, bbox_index):
+#     weight_maps_sums = []
+#     cutout_for_weight_maps = []
+#     for weight_map in weight_maps:
+#         non_zero_indices = np.nonzero(weight_map)
 
-        min_y, max_y = np.min(non_zero_indices[0]), np.max(non_zero_indices[0])
-        min_x, max_x = np.min(non_zero_indices[1]), np.max(non_zero_indices[1])
-        cutout = (min_y-1, max_y+2, min_x-1, max_x+2)
+#         min_y, max_y = np.min(non_zero_indices[0]), np.max(non_zero_indices[0])
+#         min_x, max_x = np.min(non_zero_indices[1]), np.max(non_zero_indices[1])
+#         cutout = (min_y-1, max_y+2, min_x-1, max_x+2)
 
-        weight_maps_sums.append(np.sum(weight_map[cutout[0]:cutout[1], cutout[2]:cutout[3]]))
+#         weight_maps_sums.append(np.sum(weight_map[cutout[0]:cutout[1], cutout[2]:cutout[3]]))
 
-        cutout_for_weight_maps.append(cutout)
+#         cutout_for_weight_maps.append(cutout)
 
-    return weight_maps_sums, cutout_for_weight_maps, bbox_index
+#     return weight_maps_sums, cutout_for_weight_maps, bbox_index
 
-def prepare_weight_maps(weight_maps_per_bbox):
-    weight_maps_sums_per_bbox = []
-    cutout_for_weight_maps_per_bbox = []
-    bbox_indexes = []
+def prepare_weight_maps(crop_per_bbox):
 
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(prepare_weight_maps_per_bbox, weight_maps, bbox_index) for bbox_index, weight_maps in enumerate(weight_maps_per_bbox)]
-        for future in concurrent.futures.as_completed(futures):
-            weight_maps_sums, cutout_for_weight_maps, bbox_index = future.result()
-            weight_maps_sums_per_bbox.append(weight_maps_sums)
-            cutout_for_weight_maps_per_bbox.append(cutout_for_weight_maps)
-            bbox_indexes.append(bbox_index)
+    weight_maps_sums_per_bbox = np.sum(crop_per_bbox, axis=(1, 2))
 
-    sorted_output = sorted(zip(weight_maps_sums_per_bbox, cutout_for_weight_maps_per_bbox, bbox_indexes), key=lambda x: x[2])
-    weight_maps_sums_per_bbox, cutout_for_weight_maps_per_bbox, bbox_indexes = zip(*sorted_output)
-    return weight_maps_sums_per_bbox, cutout_for_weight_maps_per_bbox
+    # with ThreadPoolExecutor() as executor:
+    #     futures = [executor.submit(prepare_weight_maps_per_bbox, weight_maps, bbox_index) for bbox_index, weight_maps in enumerate(weight_maps_per_bbox)]
+    #     for future in concurrent.futures.as_completed(futures):
+    #         weight_maps_sums, cutout_for_weight_maps, bbox_index = future.result()
+    #         weight_maps_sums_per_bbox.append(weight_maps_sums)
+    #         cutout_for_weight_maps_per_bbox.append(cutout_for_weight_maps)
+    #         bbox_indexes.append(bbox_index)
 
-def apply_weight_maps(weight_maps_per_bbox, fl):
+    # sorted_output = sorted(zip(weight_maps_sums_per_bbox, cutout_for_weight_maps_per_bbox, bbox_indexes), key=lambda x: x[2])
+    # weight_maps_sums_per_bbox, cutout_for_weight_maps_per_bbox, bbox_indexes = zip(*sorted_output)
+    return weight_maps_sums_per_bbox#, crop_per_bbox
+
+def apply_weight_maps(crop_per_bbox, crop_coords_per_bbox, fl):
     dicts = []
-    weight_maps_sums_per_bbox, cutout_for_weight_maps_per_bbox = prepare_weight_maps(weight_maps_per_bbox)
-
+    # weight_maps_sums_per_bbox, cutout_for_weight_maps_per_bbox = prepare_weight_maps(crop_per_bbox)
 
     i = 0
-    for weight_maps in tqdm.tqdm(weight_maps_per_bbox, desc="Applying Weight Maps Per Bounding Box", total=len(weight_maps_per_bbox)):
+    for bbox_crops_weight_map, bbox_coords_cutout in tqdm.tqdm(zip(crop_per_bbox, crop_coords_per_bbox), desc="Applying Weight Maps Per Bounding Box", total=len(crop_per_bbox)):
         dict_loc = {}
-        weight_maps_totals = weight_maps_sums_per_bbox[i]
-        cutouts_for_weight_maps = cutout_for_weight_maps_per_bbox[i]
-
+        cutouts_for_weight_maps = [i]
+        weight_maps_totals = [np.sum(weight_map) for weight_map in bbox_crops_weight_map]
+            
         frame_index = 0
         for frame in tqdm.tqdm(fl, desc="Applying Weight Maps Per Frame", total=len(fl)):
             output = []
-            for weight_map, weight_map_total, cutout in zip(weight_maps, weight_maps_totals, cutouts_for_weight_maps):
+            for crop_weight_map, weight_map_total, coords in zip(bbox_crops_weight_map, weight_maps_totals, bbox_coords_cutout):
                 if weight_map_total == 0:
                     output.append(0)
                 else:
-                    frame_cutout = frame[cutout[0]:cutout[1], cutout[2]:cutout[3]]
-                    weight_map_cutout = weight_map[cutout[0]:cutout[1], cutout[2]:cutout[3]]
-                    output.append(np.sum(frame_cutout*weight_map_cutout)/weight_map_total)
+                    (min_y, max_y), (min_x, max_x)  = coords
+                    frame_cutout = frame[min_y:max_y, min_x:max_x]
+                    output.append(np.sum(frame_cutout*crop_weight_map)/weight_map_total)
             dict_loc[frame_index] = output
             frame_index += 1
         dicts.append(dict_loc)

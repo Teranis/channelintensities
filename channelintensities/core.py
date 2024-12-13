@@ -1,9 +1,10 @@
-from .GUI import plot_preview_lines, main_menu, ask_for_folder_file, ask_for_input, ask_for_another_round, ask_skip_frames, find_rotation, find_bboxs, ask_data_structure, show_my_info, two_img_preview
+from .GUI import plot_preview_lines, main_menu, ask_for_folder_file, ask_for_input, ask_for_another_round, ask_skip_frames, find_rotation, find_bboxs, ask_data_structure, show_my_info, two_img_preview, ask_for_metadata_and_exp_name
 from .analysis import weight_maps_preview, generate_all_weight_maps, apply_weight_maps, calc_middle_lines_length
-from .util import save_result, load_data, load_json, load_weight_maps, save_json, save_res_json
-from .plotting import plot_master
+from .util import save_result, load_data, load_json, load_weight_maps, save_json, save_res_json, load_metadata, prop_up_weight_maps
+from .plotting import plot_master, plot_length_over_time
 import pandas as pd
 import skimage.transform
+import os
 
 def preprep_load_data():
     dim_order, tiff_dim, path = ask_data_structure()
@@ -59,7 +60,6 @@ def preprep_load_data():
     if path is None:
         path = ask_for_folder_file('JSON save directory')
 
-
     switch_img1_img2, img_bad = two_img_preview(bf, fl)
 
     if img_bad:
@@ -75,23 +75,15 @@ def preprep_load_data():
 
 def run_preprep():
     bf, fl, path, path_bf, path_fl, dim_order, tiff_dim, fl_channel = preprep_load_data()
-    input_spec = [
-    {
-        "name": "Experiment Name",
-        "type": str,
-        "default": "new_experiment"
-    }
-    ]
 
-    output = ask_for_input("Choose experiment name", input_spec)
-    try:
-        experiment_name = output['Experiment Name']
-    except TypeError:
-        print(output)
-        raise ValueError("No experiment name selected")
-    except KeyError:
-        raise ValueError("No experiment name selected")
-    
+    if path.endswith('.tiff') or path.endswith('.tif'):
+        dict_len, dict_len_rate = load_metadata(path)
+    else:
+        dict_len, dict_len_rate = load_metadata(path_bf)
+
+    experiment_name, length_per_pixel, seconds_per_frame = ask_for_metadata_and_exp_name(dict_len, dict_len_rate)
+    if not experiment_name:
+        raise ValueError("No experiment name provided")
 
     last_angle = find_rotation(bf, fl)
     print('Angle:')
@@ -137,6 +129,8 @@ def run_preprep():
         'tiff_dim': tiff_dim,
         'path_fl': path_fl,
         'path_bf': path_bf,
+        'length_per_pixel': length_per_pixel,
+        'seconds_per_frame': seconds_per_frame
     }
 
     save_json(json_info)
@@ -204,47 +198,40 @@ def main_func():
         weight_maps_preview(json_info, img_shape, num_lines=output['Number of lines to display (preview)'])
 
     if weight_map_gen_var:
-        weight_maps_per_bbox, length_middle_lines = generate_all_weight_maps(json_info, 
+        crop_per_bbox, crop_coords_per_bbox, length_middle_lines, weight_maps_per_bbox = generate_all_weight_maps(json_info, 
                                                             img_shape, 
                                                             lines_per_pixel_length=output['Lines per pixel length'])
     
-        json_info['Lines per pixel length'] = output['Lines per pixel length']
+        json_info['lines_per_pixel_length'] = output['Lines per pixel length']
         save_json(json_info)
     elif weight_map_display_var or apply_weight_map_var:
         try:
-            weight_maps_per_bbox = load_weight_maps(json_info['weight_maps_path'])
+            crop_coords_per_bbox, crop_per_bbox  = load_weight_maps(json_info)
             length_middle_lines = calc_middle_lines_length(json_info['bboxs'])
+            if weight_map_display_var:
+                weight_maps_per_bbox = prop_up_weight_maps(crop_coords_per_bbox, crop_per_bbox, json_info['bf'][0].shape)
         except KeyError:
             raise KeyError("No weight maps found! Please run weight map generation for the experiment name before applying them!")
 
     if weight_map_display_var:
-        plot_preview_lines(weight_maps_per_bbox, json_info['bf'])
+        plot_preview_lines(weight_maps_per_bbox, crop_per_bbox, crop_coords_per_bbox, json_info['bf'])
 
     if apply_weight_map_var:
-        dicts = apply_weight_maps(weight_maps_per_bbox, json_info['fl'])
+        dicts = apply_weight_maps(crop_per_bbox, crop_coords_per_bbox, json_info['fl'])
         dfs = save_result(dicts, length_middle_lines, json_info)
 
     if plot_var:
-
         input_spec = [
         {
-            "name": "Length per pixel (um)",
-            "type": float,
-            "default": 1
-        },
-        {
-            "name": "Seconds per frame",
-            "type": float,
-            "default": 2
-        },
-        {
-            "name": "Number of rows",
+            "name": "Number of plots per row",
             "type": int,
             "default": 6
-        },
+        }
         ]
-        #
-        outputs = []
+
+        output = ask_for_input("Plotting", input_spec)
+        json_info['rows'] = output['Number of plots per row']
+
         if not apply_weight_map_var:
             continue_asking = True
             dfs = []
@@ -252,35 +239,46 @@ def main_func():
                 df_path = ask_for_folder_file('csv file of the experiment', file_types=['*.csv'], file_types_string='csv files', askopenfilename_toggle=True)
 
                 if df_path is not None:
-                    output = ask_for_input("Choose parameters for plotting", input_spec)
-                    outputs.append(output)
-
-                    input_spec[0]['default'] = output['Length per pixel (um)']
-                    input_spec[1]['default'] = output['Seconds per frame']
-                    input_spec[2]['default'] = output['Number of rows']
                 
-                dfs.append(pd.read_csv(df_path))
+                    dfs.append(pd.read_csv(df_path))
 
                 continue_asking = ask_for_another_round("Continue", "Do you want to add another csv of another position?")
 
             if dfs == []:
                 raise ValueError("No csv files selected!")
 
-        else:
-            for i, _ in enumerate(dfs):
-                output = ask_for_input(f"Choose parameters for plotting {i}", input_spec)
-
-                input_spec[0]['default'] = output['Length per pixel (um)']
-                input_spec[1]['default'] = output['Seconds per frame']
-                input_spec[2]['default'] = output['Number of rows']
-
-                outputs.append(output)
-
+        res_jsons = []
+        path = json_info['path']
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+    
+        path_plot = os.path.join(path, "plots")
+        os.makedirs(path_plot, exist_ok=True)
         for i, df in enumerate(dfs):
-            output = outputs[i]
-            res_json = plot_master(df, output['Length per pixel (um)'], output['Seconds per frame'], output['Number of rows'])
-            res_json['Lines per pixel length'] = json_info['Lines per pixel length']
+            path_loc = os.path.join(path_plot, f"bbox_{i}")
+            os.makedirs(path_loc, exist_ok=True)
+            res_json = plot_master(df, json_info['length_per_pixel'], json_info['seconds_per_frame'], json_info['rows'], path_loc)
+            res_json['lines_per_pixel_length'] = json_info['lines_per_pixel_length']
             save_res_json(json_info['path'], json_info['experiment_name'], i, res_json)
+            res_jsons.append(res_json)
+
+        plot_length_over_time(json_info['path'], res_jsons)
+        Ds = [res_json['param_opt'][0] for res_json in res_jsons]
+        Cs = [res_json['param_opt'][1] for res_json in res_jsons]
+        Ds_uncertainties = [res_json['uncertainties'][0] for res_json in res_jsons]
+        Cs_uncertainties = [res_json['uncertainties'][1] for res_json in res_jsons]
+        
+        waightet_D = sum([D / uncertainty**2 for D, uncertainty in zip(Ds, Ds_uncertainties)]) / sum([1 / uncertainty**2 for uncertainty in Ds_uncertainties])
+        waightet_C = sum([C / uncertainty**2 for C, uncertainty in zip(Cs, Cs_uncertainties)]) / sum([1 / uncertainty**2 for uncertainty in Cs_uncertainties])
+
+        uncertainty_D = 1 / sum([1 / uncertainty**2 for uncertainty in Ds_uncertainties])
+        uncertainty_C = 1 / sum([1 / uncertainty**2 for uncertainty in Cs_uncertainties])
+
+        print(f"Weighted D: {waightet_D} ± {uncertainty_D}")
+        with open(os.path.join(path, "final_result.txt"), 'w') as f:
+            f.write(f"""Weighted D: {waightet_D} ± {uncertainty_D}\n
+                        Weighted C: {waightet_C} ± {uncertainty_C}\n""")
+
 
     print("Done!")
 
