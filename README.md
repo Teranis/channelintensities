@@ -1,6 +1,6 @@
-# Cell Size Regulation Dynamics Toolkit
+# Measuring the Intensity of Fluorescence Signal in Microfluidic Setup 
 
-This repository contains tools for analyzing cell size regulation dynamics by annotating single cells across generations. The workflow emphasizes a GUI-based approach for defining regions, saving plots, and managing analysis results.
+This repository contains tools for analyzing fluorescence signals in a microfluidic channel. The workflow emphasizes a GUI-based approach for defining the edges of the channels, saving plots, and managing analysis results.
 
 ## Features
 
